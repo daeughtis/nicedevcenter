@@ -1,0 +1,236 @@
+---
+id: 전자 상품권 서비스
+title: 전자 상품권 서비스
+sidebar_position: 5
+---
+import CodeBlock from '@theme/CodeBlock';
+
+`NICE정보통신 전자 상품권  API 연동서`
+___
+## 1.개요
+- 해당 문서는 전자상품권 **`HTTP 연동`** 을 위한 제반 사항을 기술한다.
+### 1.1 기본 통신 구조 
+- **연동 규격**은 `REST 아키텍처 기반` `HTTP/1.1 POST 방식`으로 `데이터 포맷은 JSON`**을 사용한다.   
+  - Content-Type : **`application/json(평문)`, `text/plain(암호문)` `charset=UTF-8`**  
+
+![그림1](/img/network.jpg)
+    <table>    
+      <thead>
+        <tr>
+          <th>NO</th>
+          <th>그룹</th>
+          <th>코드</th>
+          <th>전문명</th>
+          <th>요청 Method 및 PATH</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td rowspan="3">1</td>
+          <td rowspan="3">조회</td>
+          <td>0200S1 </td>
+          <td>잔액조회</td>
+          <td>POST /qry/balance</td>
+        </tr>
+        <tr>
+          <td>0200S4 </td>
+          <td>거래내역조회</td>
+          <td>POST /qry/transaction</td>
+        </tr>
+        <tr>
+          <td>0200SR  </td>
+          <td>회수가능조회 </td>
+          <td>POST /qry/return</td>
+        </tr>
+      </tbody>
+      <tbody>
+        <tr>
+          <td rowspan="6">2</td>
+          <td rowspan="6">회수</td>
+          <td>0200A4  </td>
+          <td>회수승인 </td>
+          <td>POST /return/auth </td>
+        </tr>
+        <tr>
+          <td>0420C4 </td>
+          <td>회수취소</td>
+          <td>POST /return/cancel </td>
+        </tr>
+        <tr>
+          <td>0420A4  </td>
+          <td>회수망취소 </td>
+          <td>POST /return/ncancel </td>
+        </tr>
+        <tr>
+          <td>0200AE  </td>
+          <td>다건회수승인 </td>
+          <td>POST /multireturn/auth  </td>
+        </tr>
+        <tr>
+          <td>0420CE  </td>
+          <td>다건회수취소 </td>
+          <td>POST /multireturn/cancel  </td>
+        </tr>
+        <tr>
+          <td>0420AE  </td>
+          <td>다건회수망취소 </td>
+          <td>POST /multireturn/ncancel   </td>
+        </tr>
+      </tbody>
+    </table>
+
+### 1.2 전문 종류       
+      |전문명|상세설명|비고|
+      |:---:|---|---|
+      |잔액조회|잔액이 변경되는 거래내역을 확인||
+      |거래내역조회 |전자상품권의 잔액을 확인||
+      |회수가능조회|같은정보로 회수요청을 보냈을 때 정상승인여부 확인||
+      |회수승인|요청한 금액만큼 상품권의 잔액을 차감 ||
+___     
+## 2 기본 연동 방식 
+
+### 2.1 전문 규격
+- **전자상품권** `API`는 **`HTTP POST Method`**를 사용하며 `HTTP Request`시 `Request Message BODY`에 **JSON**형식의 `Request Message`를 설정하여 요청(한글이 포함된 경우, `UTF8 방식`으로 Encoding하여 요청)
+
+### 2.2 연동 Base URL 
+- 전자상품권 `HTTP API 서버 (VOUCHER_IIF)`
+
+|구분|연동 주소|
+|:---:|---|
+|개발서버|`http://211.33.136.19:44497`|
+|운영서버|`http//:210.220.104.25:44497`|
+
+- 연동 업체별 Base Path 
+
+|구분|PATH|Memo|
+|:---:|---|---|
+|골프존 |/golfzon|표준 상품권 API|
+
+
+### 2.3 응답 HTTP STATUS 
+- 상품권 거래는 상품권 승인서버에서 처리되며, **`HTTP API`**로 요청한 거래의 응답.   
+  `STATUS`는 요청한 거래가   상품권 승인서버에서 승인거절되더라도 **`STATUS = 200(정상)`** 응답.   
+- 이 경우 요청한 거래의 처리여부는 응답메시지 `Body` 응답코드값을 통해 판단.  
+  (8.1 응답코드표 참조)
+- 암복호화∙네트워크∙포맷 오류 등으로 인해 상품권 승인서버로부터 받은 처리결과를 반환하지 못하는 경우    
+  **`HTTP STATUS = 500`** **(내부 서버 오류)** 로 응답되며 `Body메시지`로 **오류코드**와 **오류메시지**로 반환. 
+
+- 오류 응답 Parameters 
+
+|Name|Type|Size|Description|
+|:---|:---:|:---:|--------------------|
+|result |String|4|오류 코드       *응답코드표 참조*|
+|message |String||오류 메시지|
+
+- 오류 응답 Message Format (`JSON`) 
+<CodeBlock className="language-js">
+{`{  
+  "result": "9001",   
+  "message": "내부 처리 오류 (Internal Server Error occurred!    
+   Please contact administrator)"    
+}`
+}
+
+</CodeBlock>
+
+
+### 2.4 메시지 공통 포맷
+###    가) 공통 요청 parameter
+ - 모든 요청전문의 Body파라미터에 niceheader값을 포함해야 한다 
+ - **Header Parameters** 
+
+|Name|Type|Size|Description|
+|:---|:---:|:---:|:---:|
+|catId|String|10|Cat ID| 
+|issCode|String|2|발급사코드|
+|tranNo|String|10|거래일련번호|
+|saleDate|String|8|영업일자|
+|storeCd|String|6|점포코드|
+
+- 전자상품권 브랜드(ex. 골프존유통)별로 `발급사코드`(2자리) 발급받아 사용
+- 브랜드 내 점포(ex. 골프존유통-본사, 골프존유통-여의도점)별로 `CatID`와 `점포코드` 발급 
+- 거래일련번호는 망취소시 원거래를 특정하는 `key값`이 되므로, 거래별로 구분되는 `unique한 값` 생성하여 입력.    
+**(YYMMDD(6 bytes)** + **sequence(4 bytes)값 권장)**
+- 영업일자는 제휴사에서 정산기준으로 삼을 날짜.
+___
+## 3 전자상품권 조회 API
+### 3.1 잔액조회
+### 가) 개요
+- 전자상품권의 현재잔액 확인 
+### 나) 요청 항목
+- 요청 Method 및 Path
+  |API|Method|Path|
+  |:---:|:---:|:---:|
+  |잔액조회|POST|/qry/balance|
+  
+- 요청 Body Parameters
+   
+|Name|Type|Size|필수값|Description|
+|:---|:---:|:---:|:---:|:---:|
+|catId|String|10|잔액조회|Cat ID| 
+|issCode|String|2|잔액조회|발급사코드|
+|tranNo|String|10|잔액조회|거래일련번호|
+|saleDate|String|8|잔액조회|영업일자|
+|storeCd|String|6|잔액조회|점포코드|
+|voucherNo|String|16|잔액조회|상품권번호|
+
+- 잔액조회 요청 Sample (JSON) 
+<CodeBlock className="language-js">
+{`
+  {
+    "header": {
+    "catId": "2393300001",
+    "issCode": "IC",
+    "tranNo": "210516QR11",
+    "saleDate": "20210516",
+    "storeCd": "NICE" },
+    "voucherNo": "8888003000001234"
+  }`}
+
+</CodeBlock>
+
+
+___
+## 4 전자상품권 회수 API
+.....
+___
+## 5 전자상품권 충전/판매 API
+.....
+___
+## 6 전자상품권 대행판매 API 
+.....
+___
+## 7 코드표
+___
+### 7.1 응답 코드표
+|응답코드| Description |
+|:---:|:---:|
+|0000| 정상 |
+|7573| 거래정지 가맹점 |
+|7575| 미등록 가맹점 |
+|7576| 해지 가맹점 |
+|8037| 상품권번호 확인요망 |
+|8041| 인증번호 불일치 |
+|8323| 잔액부족 |
+|8374| 통신장애 재시도 요망 |
+|8376| 승인서버 내부오류 (관리자 연락요망) |
+|8449| 활성화되지 않은 카드    |
+|8501| 전문오류             |
+|8502| 상품권 권종오류        |
+|8504| 원거래금액 불일치      |
+|8505| 취소가능일수 경과      |
+|8506| 미취소거래           |
+|8507| 기취소거래           |
+|8508| KEYIN 불가거래       |
+|8511| 거래금액오류          |
+|8515| 사용정지 상품권        |
+|8521| 한도초과             |
+|8536| 입고점과 판매점 상이    |
+|8537| 사용된 상품권         |
+|8538| 판매수량 상이         |
+|8539| 판매자정보 누락        |
+|8666| 원거래없음           |
+|8667| 기활성화된 상품권      |
+|5523| 거래불가             |
+|8804| 폐기된카드           |
+|9001| HTTP API서버 내부오류 |
