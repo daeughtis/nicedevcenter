@@ -106,7 +106,7 @@ const config = {
           {to: '/com/intro', label: '커뮤니티', position: 'left' },
           {to: '/blog', label: '블로그', position: 'left'},
           {
-            href: 'https://github.com/facebook/docusaurus',
+            href: 'https://github.com/daeughtis/nicedevcenter',
             label: 'GitHub',
             position: 'right',
           }
